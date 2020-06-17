@@ -3,7 +3,9 @@ import time
 import math
 import board
 import busio
-import adafruit_bno055
+import adafruit_lsm303dlh_mag
+import adafruit_lsm303_accel
+import adafruit_l3gd20
 import adafruit_ssd1306
 import adafruit_pca9685
 import adafruit_bme280
@@ -23,9 +25,12 @@ pwm = adafruit_pca9685.PCA9685(i2c_pwm)
 
    
 pwm.frequency = 1600
-#I2C address for the IMU is 0x28
-i2c_bno = board.I2C()
-sensor = adafruit_bno055.BNO055_I2C(i2c_bno,0x28)
+#I2C address for the IMU is 0x1e
+i2c_lsm = board.I2C()
+mag_sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c_lsm)
+accel_sensor = adafruit_lsm303_accel.LSM303_Accel(i2c_lsm)
+gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
+
 
 #I2C address for the OLED screen is 0x3c
 i2c_oled = board.I2C()
@@ -48,17 +53,30 @@ bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c_bme,0x76)
 xx = 0
 yy = 0
 
-rollDeg = 0           
-pitchDeg = 0
-yawDeg = 0
-yawE = 0
-pitchE = 0
-yaw = 0
+# rollDeg = 0           
+# pitchDeg = 0
+# yawDeg = 0
+# yawE = 0
+# pitchE = 0
+# yaw = 0
 pi = 3.1415926
+        
 
 prevYaw = 0
 prevPitch = 0
 prevRoll = 0
+
+mag_x = 0
+mag_y = 0
+mag_z = 0
+
+gyro_x = 0
+gyro_y = 0
+gyro_z = 0
+
+accel_x = 0
+accel_y = 0
+accel_z = 0
 
 def sensor_read(arg1):
     while True:
@@ -68,51 +86,55 @@ def sensor_read(arg1):
         global yaw
         global pitch
         global roll
+
+        global mag_x
+        global mag_y
+        global mag_z
         
-        global yawDeg
-        global yawE
-        global pitchDeg
-        global rollDeg
+        global accel_x
+        global accel_y
+        global accel_z        
+
+        global gyro_x
+        global gyro_y
+        global gyro_z
         
         #take 10 readings per second
-        time.sleep(0.1)        
-        w = (sensor.quaternion[0])
-        x = (sensor.quaternion[1])
-        y = (sensor.quaternion[2])
-        z = (sensor.quaternion[3])
-        pitch = 0
-        yaw = 0
-        roll = 0
+        time.sleep(0.1)
+        
         try:
-         #if (isinstance(w,float) and isinstance(x,float) and isinstance(y,float) and isinstance(z,float)):  
-            #print("The quat: {} ".format(sensor.quaternion))
-            yaw = (math.atan2(2*(w*z+x*y),1-2*(y*y+z*z)))
-            pitch = (math.asin(2*w*y - z*y))
-            roll = (math.atan2(2*(w*x+y*z),1-2*(x*x+y*y)))
-            yawE = sensor.euler[0]
-            pitchE = sensor.euler[1]
-            prevYaw = yaw
-            prevPitch = pitch
-            prevRoll = roll
+                       
+            mag_x, mag_y, mag_z = mag_sensor.magnetic
+            accel_x, accel_y, accel_z = accel_sensor.acceleration
+            gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
+            yaw = math.atan2(mag_y,mag_x)
+            
+            print("mag: {}".format(mag_sensor.magnetic))
+            print("accel: {}".format(accel_sensor.acceleration))
+        
+            pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
+            roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
+                #if (isinstance(w,float) and isinstance(x,float) and isinstance(y,float) and isinstance(z,float)):  
+                #print("The quat: {} ".format(sensor.quaternion))
+                #yaw = (math.atan2(2*(w*z+x*y),1-2*(y*y+z*z)))
+                #pitch = (math.asin(2*w*y - z*y))
+                #roll = (math.atan2(2*(w*x+y*z),1-2*(x*x+y*y)))
+            if yaw < 0:
+                yaw=yaw+2*pi
         except:
-            pitch = prevPitch
-            yaw = prevYaw
-            roll = prevRoll
-            yawE = 0
-            pitchE = 0
+            pitch = 999
+            yaw = 999
+            roll = 999
         #convert radians to degrees
-        rollDeg = -roll*57.2958            
-        pitchDeg = -pitch*57.2958
-        yawDeg = -yaw*57.2958
-        #print("Yaw: {}".format(sensor.euler[0]))
-        #print("Yaw2: {}".format(yawDeg))
-        #print("Pitch: {}".format(sensor.euler[1]))
-        #print("Pitch2: {}".format(pitchDeg))
-        #print("cal: {}".format(sensor.calibration_status))
+        rollDeg = roll*57.2958            
+        pitchDeg = pitch*57.2958
+        yawDeg = yaw*57.2958
+        print("yawDeg: {}".format(yawDeg))
+
         #line (radius) in compass is 23 pixels (compass is 46 pixels wide)
         #offset by pi to orient the display so top is north
-        xx = round(math.sin(yaw+pi)*23)
-        yy = round(math.cos(yaw+pi)*23)
+        xx = round(math.cos(yaw-pi/2)*23)
+        yy = round(math.sin(yaw-pi/2)*23)
         
         image = Image.new("1",(128,64))
         draw = ImageDraw.Draw(image)
@@ -131,14 +153,14 @@ def sensor_read(arg1):
         draw.text((0,22),"H: {}%".format(round(bme280.humidity)),font=font,fill=255)
         draw.text((64,6),"P: {}mbar".format(round(bme280.pressure)),font=font,fill=255)
         
-        draw.text((80,14),"PchE: {}".format(round(pitchE)),font=font,fill=255)
+        #draw.text((80,14),"PchE: {}".format(round(pitchE)),font=font,fill=255)
 
         
-        draw.text((80,55),"YawE:{}".format(round(yawE)),font=font,fill=255)  
-        draw.text((0,55),"c:{}".format(sensor.calibration_status[0]),font=font,fill=255)  
-        draw.text((20,55),"{}".format(sensor.calibration_status[1]),font=font,fill=255)  
-        draw.text((29,55),"{}".format(sensor.calibration_status[2]),font=font,fill=255)
-        draw.text((39,55),"{}".format(sensor.calibration_status[3]),font=font,fill=255)
+        #draw.text((80,55),"YawE:{}".format(round(yawE)),font=font,fill=255)  
+        #draw.text((0,55),"c:{}".format(sensor.calibration_status[0]),font=font,fill=255)  
+        #draw.text((20,55),"{}".format(sensor.calibration_status[1]),font=font,fill=255)  
+        #draw.text((29,55),"{}".format(sensor.calibration_status[2]),font=font,fill=255)
+        #draw.text((39,55),"{}".format(sensor.calibration_status[3]),font=font,fill=255)
         oled.image(image)
         oled.show()
         
@@ -348,18 +370,7 @@ try:
                 GPIO.output(6,GPIO.HIGH)#turn on other LED
             else:
                 GPIO.output(6,GPIO.LOW)#otherwise turn it off - should turn off when any other button is pushed
-            if button == "b":
 
-                print("Yaw: {}".format(sensor.euler[0]))    
-                print("Yaw2: {}".format(yawDeg))
-                print("Pitch: {}".format(sensor.euler[1]))
-                print("Pitch2: {}".format(pitchDeg))
-                print("Roll: {}".format(sensor.euler[2]))
-                print("Roll2: {}".format(rollDeg))
-
-
-            #else:
-                #print("Calibration: {}".format(sensor.calibration_status))
         if type & 0x02:
             axis = axis_map[number]
             #right joystick fwd/rev
@@ -477,3 +488,4 @@ except KeyboardInterrupt:
     # Clear display.
     oled.fill(0)
     oled.show()
+
