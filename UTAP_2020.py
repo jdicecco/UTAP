@@ -10,8 +10,6 @@ import adafruit_ssd1306
 import adafruit_pca9685
 import adafruit_bme280
 from PIL import Image, ImageDraw, ImageFont
-#import digitalio
-#import spidev
 
 import os, sys, struct, array
 from fcntl import ioctl
@@ -38,12 +36,9 @@ i2c_bme = board.I2C()
 bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c_bme,0x76)
 
 
-#Some definitions - will need to make these global
+'''#Some definitions - will need to make these global
 xx = 0
 yy = 0
-
-pi = 3.1415926
-        
 
 prevYaw = 0
 prevPitch = 0
@@ -51,7 +46,6 @@ prevRoll = 0
 
 mag_x = 0
 mag_y = 0
-mag_z = 0
 
 gyro_x = 0
 gyro_y = 0
@@ -59,7 +53,7 @@ gyro_z = 0
 
 accel_x = 0
 accel_y = 0
-accel_z = 0
+accel_z = 0'''
 
 def sensor_read(arg1):
     while True:
@@ -72,7 +66,6 @@ def sensor_read(arg1):
 
         global mag_x
         global mag_y
-        global mag_z
         
         global accel_x
         global accel_y
@@ -87,7 +80,7 @@ def sensor_read(arg1):
         
         try:
                        
-            mag_x, mag_y, mag_z = mag_sensor.magnetic
+            mag_x, mag_y, _ = mag_sensor.magnetic
             accel_x, accel_y, accel_z = accel_sensor.acceleration
             gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
             yaw = math.atan2(mag_y,mag_x)
@@ -99,13 +92,9 @@ def sensor_read(arg1):
         
             pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
             roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
-                #if (isinstance(w,float) and isinstance(x,float) and isinstance(y,float) and isinstance(z,float)):  
-                #print("The quat: {} ".format(sensor.quaternion))
-                #yaw = (math.atan2(2*(w*z+x*y),1-2*(y*y+z*z)))
-                #pitch = (math.asin(2*w*y - z*y))
-                #roll = (math.atan2(2*(w*x+y*z),1-2*(x*x+y*y)))
+
             if yaw < 0:
-                yaw=yaw+2*pi
+                yaw=yaw+2*mat.pi
                 
 
         except:
@@ -122,8 +111,8 @@ def sensor_read(arg1):
 
         #line (radius) in compass is 23 pixels (compass is 46 pixels wide)
         #offset by pi/2 to orient the display so top is north
-        xx = round(math.cos(yaw-pi/2)*23)
-        yy = round(math.sin(yaw-pi/2)*23)
+        xx = round(math.cos(yaw-math.pi/2)*23)
+        yy = round(math.sin(yaw-math.pi/2)*23)
         
         image = Image.new("1",(128,64))
         draw = ImageDraw.Draw(image)
@@ -146,10 +135,6 @@ def sensor_read(arg1):
 
         oled.image(image)
         oled.show()
-        
-     
-#Start the sensor read thread         
-t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
 
 # Create blank image for drawing.
 oled.fill(0)
@@ -160,13 +145,11 @@ width = oled.width
 height = oled.height
 image = Image.new('1', (width, height))
 
-# Get drawing object to draw on image.
-draw = ImageDraw.Draw(image)
-
-# Draw a black filled box to clear the image. 0,0 is the upper left pixel
-draw.rectangle((0,0,width,height), outline=0, fill=0)
-font = ImageFont.load_default()
-
+# Pick a font for the text
+font = ImageFont.load_default()       
+       
+#Start the sensor read thread         
+t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
 
 #### CONFIGURE THE RPI TO INTERFACE WITH CONTROL BOARD ####
 
@@ -177,7 +160,6 @@ BL1 = 13
 BL2 = 17
 OR1 = 20
 BR1 = 27
-
 
 #Do the same for the corresponding PWM signals
 GR1_PWM = 1
@@ -376,7 +358,7 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValx2 = int(fvalue)*2+1
-                        #left joystick fwd/rev      
+                #left joystick fwd/rev      
                 if axis=="y":
                     fvalue = value
                     axis_states[axis] = fvalue
@@ -396,8 +378,7 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValrx = int(fvalue)*2+1
-                    
-                    
+                                        
                 #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html      
                 if intValy2<-100:
 
@@ -435,8 +416,6 @@ try:
                     pwm.channels[OR1_PWM].duty_cycle = abs(intValrx)               
                     pwm.channels[BR1_PWM].duty_cycle = abs(intValrx)
 
-
-
                 elif intValry>100:
                 
                     GPIO.output(OR1,GPIO.HIGH)#direction pin
@@ -449,11 +428,7 @@ try:
                     pwm.channels[OR1_PWM].duty_cycle = 0
                     pwm.channels[BR1_PWM].duty_cycle = 0
             
-                               
-            
 except (KeyboardInterrupt,SystemExit):            
     GPIO.cleanup()
-    # Clear display.
-    oled.fill(0)
-    oled.show()
+
 
