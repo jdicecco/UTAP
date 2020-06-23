@@ -66,6 +66,7 @@ def sensor_read(arg1):
 
         global mag_x
         global mag_y
+        global mag_z
         
         global accel_x
         global accel_y
@@ -75,12 +76,15 @@ def sensor_read(arg1):
         global gyro_y
         global gyro_z
         
+        global X_h
+        global Y_h
+        
         #take 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      readings per second
         time.sleep(0.1)
         
         try:
                        
-            mag_x, mag_y, _ = mag_sensor.magnetic
+            mag_x, mag_y, mag_z = mag_sensor.magnetic
             accel_x, accel_y, accel_z = accel_sensor.acceleration
             gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
             yaw = math.atan2(mag_y,mag_x)
