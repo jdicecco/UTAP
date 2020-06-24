@@ -17,15 +17,14 @@ import RPi.GPIO as GPIO
 
 #I2C address for the PWM driver board retrieved automatically
 i2c_pwm = board.I2C()
-pwm = adafruit_pca9685.PCA9685(i2c_pwm)  
+pwm = adafruit_pca9685.PCA9685(i2c_pwm)
+  
 pwm.frequency = 1600
 
-#Actually three devices on the chip at 0x19, 0x1e, and 0x6B
 i2c_lsm = board.I2C()
 mag_sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c_lsm)
 accel_sensor = adafruit_lsm303_accel.LSM303_Accel(i2c_lsm)
-gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
-
+#gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
 
 #I2C address for the OLED screen is 0x3c
 i2c_oled = board.I2C()
@@ -35,32 +34,13 @@ oled = adafruit_ssd1306.SSD1306_I2C(128,64, i2c_oled,addr=0x3c,reset=[])
 i2c_bme = board.I2C()
 bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c_bme,0x76)
 
-
-'''#Some definitions - will need to make these global
-xx = 0
-yy = 0
-
-prevYaw = 0
-prevPitch = 0
-prevRoll = 0
-
-mag_x = 0
-mag_y = 0
-
-gyro_x = 0
-gyro_y = 0
-gyro_z = 0
-
-accel_x = 0
-accel_y = 0
-accel_z = 0'''
-
 def sensor_read(arg1):
     while True:
         global yy
         global xx
 
         global yaw
+        global tilt_yaw
         global pitch
         global roll
 
@@ -76,19 +56,27 @@ def sensor_read(arg1):
         global gyro_y
         global gyro_z
         
-        global X_h
-        global Y_h
-        
-        #take 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      readings per second
+        #take 10 readings per second
         time.sleep(0.1)
         
         try:
                        
             mag_x, mag_y, mag_z = mag_sensor.magnetic
             accel_x, accel_y, accel_z = accel_sensor.acceleration
-            gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
-            yaw = math.atan2(mag_y,mag_x)
+            #gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
             
+            yaw = math.atan2(mag_y,mag_x)
+            if yaw < 0:
+                yaw=yaw+2*math.pi 
+                
+            #tilt compensation
+            x_h = mag_x*math.cos(pitch) + mag_z*math.sin(pitch)
+            y_h = mag_x*math.sin(roll)*math.sin(pitch)+mag_y*math.cos(roll)-\
+                  mag_z*math.sin(roll)*math.cos(pitch)
+            
+            tilt_yaw = math.atan2(y_h,x_h)          
+            if tilt_yaw < 0:
+                tilt_yaw=tilt_yaw+2*math.pi
             
             #We use print statements for debugging - comment out to spee execution
             #print("mag: {}".format(mag_sensor.magnetic))
@@ -96,25 +84,22 @@ def sensor_read(arg1):
         
             pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
             roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
-
-            if yaw < 0:
-                yaw=yaw+2*mat.pi
                 
 
         except:
 
             subprocess.call(['i2cdetect', '-y', '1'])
             continue
-                    
-        #convert radians to degrees
+                    #convert radians to degrees
+        
         rollDeg = roll*57.2958            
         pitchDeg = pitch*57.2958
         yawDeg = yaw*57.2958
-         
-        #print("yawDeg: {}".format(yawDeg))
-
+        yawTilt = tilt_yaw*57.2958
+        print("yawDeg: {}".format(yawDeg))
+        print("yawTilt: {}".format(yawTilt))
         #line (radius) in compass is 23 pixels (compass is 46 pixels wide)
-        #offset by pi/2 to orient the display so top is north
+        #offset by pi to orient the display so top is north
         xx = round(math.cos(yaw-math.pi/2)*23)
         yy = round(math.sin(yaw-math.pi/2)*23)
         
@@ -122,9 +107,7 @@ def sensor_read(arg1):
         draw = ImageDraw.Draw(image)
         
         font = ImageFont.load_default()
-        
-      
-        #Lets draw a compass ... and display some info
+
         draw.ellipse((41,17,87,63),outline=255, fill=0)#left,top,right,bottom
              
         draw.line((xx+64,yy+41,64,41),fill=255) #[left (beginning), top] head, [right (end), bottom] tail - tail is always at center
@@ -139,21 +122,20 @@ def sensor_read(arg1):
 
         oled.image(image)
         oled.show()
+        
+     
+#Start the sensor read thread         
+t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
 
-# Create blank image for drawing.
-oled.fill(0)
-oled.show()
+
 
 # Setup OLED screen - get parameters
 width = oled.width
 height = oled.height
 image = Image.new('1', (width, height))
 
-# Pick a font for the text
-font = ImageFont.load_default()       
-       
-#Start the sensor read thread         
-t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
+font = ImageFont.load_default()
+
 
 #### CONFIGURE THE RPI TO INTERFACE WITH CONTROL BOARD ####
 
@@ -164,6 +146,7 @@ BL1 = 13
 BL2 = 17
 OR1 = 20
 BR1 = 27
+
 
 #Do the same for the corresponding PWM signals
 GR1_PWM = 1
@@ -347,7 +330,6 @@ try:
                         GPIO.output(BL2,GPIO.LOW)
                         pwm.channels[GR2_PWM].duty_cycle = 0
                         pwm.channels[BL2_PWM].duty_cycle = 0
-                        
             if type & 0x02:
                 axis = axis_map[number]
                 #right joystick fwd/rev
@@ -362,7 +344,7 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValx2 = int(fvalue)*2+1
-                #left joystick fwd/rev      
+                        #left joystick fwd/rev      
                 if axis=="y":
                     fvalue = value
                     axis_states[axis] = fvalue
@@ -382,7 +364,8 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValrx = int(fvalue)*2+1
-                                        
+                    
+                    
                 #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html      
                 if intValy2<-100:
 
@@ -420,6 +403,8 @@ try:
                     pwm.channels[OR1_PWM].duty_cycle = abs(intValrx)               
                     pwm.channels[BR1_PWM].duty_cycle = abs(intValrx)
 
+
+
                 elif intValry>100:
                 
                     GPIO.output(OR1,GPIO.HIGH)#direction pin
@@ -432,7 +417,11 @@ try:
                     pwm.channels[OR1_PWM].duty_cycle = 0
                     pwm.channels[BR1_PWM].duty_cycle = 0
             
+                               
+            
 except (KeyboardInterrupt,SystemExit):            
     GPIO.cleanup()
-
+    # Clear display.
+    oled.fill(0)
+    oled.show()
 
