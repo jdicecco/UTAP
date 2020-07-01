@@ -69,6 +69,11 @@ def sensor_read(arg1):
             if yaw < 0:
                 yaw=yaw+2*math.pi 
                 
+            
+            pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
+            roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
+            
+            
             #tilt compensation
             x_h = mag_x*math.cos(pitch) + mag_z*math.sin(pitch)
             y_h = mag_x*math.sin(roll)*math.sin(pitch)+mag_y*math.cos(roll)-\
@@ -81,9 +86,7 @@ def sensor_read(arg1):
             #We use print statements for debugging - comment out to spee execution
             #print("mag: {}".format(mag_sensor.magnetic))
             #print("accel: {}".format(accel_sensor.acceleration))
-        
-            pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
-            roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
+       
                 
 
         except:
