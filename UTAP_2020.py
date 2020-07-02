@@ -3,28 +3,53 @@ import time
 import math
 import board
 import busio
-import adafruit_lsm303dlh_mag
-import adafruit_lsm303_accel
-import adafruit_l3gd20
+
+#We tried several IMU sensors - may go back to this one
+#import adafruit_lsm303dlh_mag
+#import adafruit_lsm303_accel
+#import adafruit_l3gd20
+import adafruit_fxos8700
+import adafruit_fxas21002c
+
+#OLED screen
 import adafruit_ssd1306
+
+#PWM Board
 import adafruit_pca9685
+
+#Temp, Humidity, Pressure Sensor
 import adafruit_bme280
+
+#For OLED screen support
 from PIL import Image, ImageDraw, ImageFont
 
+#Error handling
+import subprocess
+
+#For access to operating system and array types
+#Joystick support
 import os, sys, struct, array
+
+#Input output control
+#Joystick support
 from fcntl import ioctl
+
+#RPi general purpose input/output pins
 import RPi.GPIO as GPIO
 
 #I2C address for the PWM driver board retrieved automatically
 i2c_pwm = board.I2C()
 pwm = adafruit_pca9685.PCA9685(i2c_pwm)
-  
+
 pwm.frequency = 1600
 
-i2c_lsm = board.I2C()
-mag_sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c_lsm)
-accel_sensor = adafruit_lsm303_accel.LSM303_Accel(i2c_lsm)
-#gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
+# i2c_lsm = board.I2C()
+# mag_sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c_lsm)
+# accel_sensor = adafruit_lsm303_accel.LSM303_Accel(i2c_lsm)
+# gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
+i2c_nxp = board.I2C()
+mag_accel_sensor = adafruit_fxos8700.FXOS8700(i2c_nxp)
+gyro_sensor = adafruit_fxas21002c.FXAS21002C(i2c_nxp)
 
 #I2C address for the OLED screen is 0x3c
 i2c_oled = board.I2C()
@@ -56,51 +81,69 @@ def sensor_read(arg1):
         global gyro_y
         global gyro_z
         
-        #take 10 readings per second
+
+        #take 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      readings per second
         time.sleep(0.1)
         
         try:
-                       
-            mag_x, mag_y, mag_z = mag_sensor.magnetic
-            accel_x, accel_y, accel_z = accel_sensor.acceleration
-            #gyro_x, gyro_y, gyro_z = gyro_sensor.gyro
+               
+            #Previous code for reading differnt IMU sensor
+            #mag_x, mag_y, mag_z = mag_sensor.magnetic
+            #accel_x, accel_y, accel_z = accel_sensor.acceleration
+            
+            #Read IMU
+            mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+            accel_x, accel_y, accel_z = mag_accel_sensor.accelerometer
+            gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+            
+            
+            #mag calibration offsets for a SPECIFIC device - yours will be different!!
+            #X: -46.20, Y:  -83.05, Z: -107.25
+            #X: -38.30, Y:  -67.60, Z: -100.35
+            
+            mag_cal_x = -38.3
+            mag_cal_y = -67.6
+            mag_cal_z = -100.35
+            
+            mag_x = mag_x-mag_cal_x
+            mag_y = mag_y-mag_cal_y
+            mag_z = mag_z-mag_cal_z
             
             yaw = math.atan2(mag_y,mag_x)
-            if yaw < 0:
-                yaw=yaw+2*math.pi 
-                
-            
-            pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
-            roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
-            
-            
-            #tilt compensation
-            x_h = mag_x*math.cos(pitch) + mag_z*math.sin(pitch)
-            y_h = mag_x*math.sin(roll)*math.sin(pitch)+mag_y*math.cos(roll)-\
-                  mag_z*math.sin(roll)*math.cos(pitch)
-            
-            tilt_yaw = math.atan2(y_h,x_h)          
-            if tilt_yaw < 0:
-                tilt_yaw=tilt_yaw+2*math.pi
             
             #We use print statements for debugging - comment out to spee execution
-            #print("mag: {}".format(mag_sensor.magnetic))
-            #print("accel: {}".format(accel_sensor.acceleration))
-       
+            #print("mag: {},{},{}".format(mag_x, mag_y, mag_z))
+            #print("accel: {}".format(mag_accel_sensor.accelerometer))
+        
+            pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
+            roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
+  
+            if yaw < 0:
+                yaw=yaw+2*math.pi
                 
+            #tilt compensation
+            x_h = mag_x*math.cos(pitch) + mag_z*math.sin(pitch)
+            y_h = mag_x*math.sin(roll)*math.sin(pitch)+mag_y*math.cos(roll)-mag_z*math.sin(roll)*math.cos(pitch)
+            
+            tilt_yaw = math.atan2(y_h,x_h)
+            
+            if tilt_yaw < 0:
+                tilt_yaw=tilt_yaw+2*math.pi
 
         except:
 
             subprocess.call(['i2cdetect', '-y', '1'])
             continue
-                    #convert radians to degrees
-        
+           
+        #convert radians to degrees
         rollDeg = roll*57.2958            
         pitchDeg = pitch*57.2958
         yawDeg = yaw*57.2958
         yawTilt = tilt_yaw*57.2958
-        print("yawDeg: {}".format(yawDeg))
-        print("yawTilt: {}".format(yawTilt))
+        
+        #print("yawDeg: {}".format(yawDeg))
+        #print("yawTilt: {}".format(yawTilt))
+        
         #line (radius) in compass is 23 pixels (compass is 46 pixels wide)
         #offset by pi to orient the display so top is north
         xx = round(math.cos(yaw-math.pi/2)*23)
@@ -118,19 +161,18 @@ def sensor_read(arg1):
         draw.text((0,-2),"Yaw: {}".format(round(yawDeg)),font=font,fill=255)
         draw.text((64,-2),"Pitch: {}".format(round(pitchDeg)),font=font,fill=255)
         draw.text((0,6),"Roll: {}".format(round(rollDeg)),font=font,fill=255)
-
+         
+        #Display information from Temp, Heading, Pressure sensor - you may wish to do something based on this information
         draw.text((0,14),"T: {:0.1f}C".format((bme280.temperature)),font=font,fill=255)
         draw.text((0,22),"H: {}%".format(round(bme280.humidity)),font=font,fill=255)
         draw.text((64,6),"P: {}mbar".format(round(bme280.pressure)),font=font,fill=255)
 
+        #Update OLED screen to show new data and orientation (attitude) information
         oled.image(image)
         oled.show()
-        
-     
+             
 #Start the sensor read thread         
 t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
-
-
 
 # Setup OLED screen - get parameters
 width = oled.width
@@ -300,7 +342,6 @@ try:
         # Joystick code based on release by rdb under the Unlicense (unlicense.org)
         # Based on information from:
         # https://www.kernel.org/doc/Documentation/input/joystick-api.txt
-        GPIO.output(16,GPIO.HIGH)#turn on white LED to indicate the program is running
 
         evbuf = jsdev.read(8)
         if evbuf:
@@ -328,11 +369,13 @@ try:
                         GPIO.output(BL2,GPIO.HIGH)
                         pwm.channels[GR2_PWM].duty_cycle = 0xFFFF
                         pwm.channels[BL2_PWM].duty_cycle = 0xFFFF
+                        GPIO.output(16,GPIO.HIGH)
                     else:
                         GPIO.output(GR2,GPIO.LOW)
                         GPIO.output(BL2,GPIO.LOW)
                         pwm.channels[GR2_PWM].duty_cycle = 0
                         pwm.channels[BL2_PWM].duty_cycle = 0
+                        GPIO.output(16,GPIO.LOW)
             if type & 0x02:
                 axis = axis_map[number]
                 #right joystick fwd/rev
@@ -367,8 +410,7 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValrx = int(fvalue)*2+1
-                    
-                    
+                                       
                 #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html      
                 if intValy2<-100:
 
@@ -406,8 +448,6 @@ try:
                     pwm.channels[OR1_PWM].duty_cycle = abs(intValrx)               
                     pwm.channels[BR1_PWM].duty_cycle = abs(intValrx)
 
-
-
                 elif intValry>100:
                 
                     GPIO.output(OR1,GPIO.HIGH)#direction pin
@@ -419,12 +459,6 @@ try:
 
                     pwm.channels[OR1_PWM].duty_cycle = 0
                     pwm.channels[BR1_PWM].duty_cycle = 0
-            
-                               
-            
+                       
 except (KeyboardInterrupt,SystemExit):            
     GPIO.cleanup()
-    # Clear display.
-    oled.fill(0)
-    oled.show()
-
