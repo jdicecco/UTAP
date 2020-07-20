@@ -188,7 +188,7 @@ font = ImageFont.load_default()
 GR1 = 19
 GR2 = 21
 BL1 = 13 
-BL2 = 17
+BL2 = 26
 OR1 = 20
 BR1 = 27
 
