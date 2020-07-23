@@ -19,15 +19,15 @@ import adafruit_fxos8700
 import adafruit_fxas21002c
 
 #Temp, Humidity, Pressure Sensor
-import adafruit_bmp280
+import adafruit_bme280
 
 i2c_nxp = board.I2C()
 mag_accel_sensor = adafruit_fxos8700.FXOS8700(i2c_nxp)
 gyro_sensor = adafruit_fxas21002c.FXAS21002C(i2c_nxp)
 
 #I2C address for the temp, humidity and pressure sensor is 0x76
-i2c_bmp = board.I2C()
-bmp280 = adafruit_bmp280.Adafruit_BMP280_I2C(i2c_bmp,0x76)
+i2c_bme = board.I2C()
+bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c_bme,0x76)
 ###############################################################################
 # Parameters and global variables
 
@@ -116,7 +116,7 @@ def animate(i, ax1, ax2, xs, temps, head, temp_c, IMU):
 
     # Update data to display temperature and light values
     try:
-        new_temp = round(bmp280.temperature,2)
+        new_temp = round(bme280.temperature,2)
         mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
         yaw = math.atan2(mag_y,mag_x)
         if yaw < 0:
