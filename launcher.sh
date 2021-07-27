@@ -4,5 +4,5 @@
 
 cd /
 cd home/pi/Desktop/RPi
-sudo python3 UTAP_2020.py
+#sudo python3 UTAP_2021.py
 cd /
