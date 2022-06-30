@@ -72,39 +72,39 @@ def sensor_read(arg1):
         global mag_x
         global mag_y
         global mag_z
-        
+
         global accel_x
         global accel_y
-        global accel_z        
+        global accel_z
 
         global gyro_x
         global gyro_y
         global gyro_z
-        
+
 
         #take 10                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      readings per second
         time.sleep(0.1)
-        
+
         try:
-               
+
             #Previous code for reading differnt IMU sensor
             #mag_x, mag_y, mag_z = mag_sensor.magnetic
             #accel_x, accel_y, accel_z = accel_sensor.acceleration
-            
+
             #Read IMU
             mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
             accel_x, accel_y, accel_z = mag_accel_sensor.accelerometer
             gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
-            
-            
+
+
             #mag calibration offsets for a SPECIFIC device - yours will be different!!
             #X: -46.20, Y:  -83.05, Z: -107.25
             #X: -38.30, Y:  -67.60, Z: -100.35
-            
+
             mag_cal_x = -18.15
             mag_cal_y = -66.1
             mag_cal_z = -91.9
-            
+
             mag_x = mag_x-mag_cal_x
             mag_y = mag_y-mag_cal_y
             mag_z = mag_z-mag_cal_z
@@ -112,25 +112,25 @@ def sensor_read(arg1):
             #mag_y = mag_cal_y
             #mag_z = mag_cal_z
             yaw = math.atan2(mag_y,mag_x)
-            
+
             #We use print statements for debugging - comment out to spee execution
             #print("mag: {},{},{}".format(mag_x, mag_y, mag_z))
             #print("accel: {}".format(mag_accel_sensor.accelerometer))
-        
+
             pitch = math.atan2(accel_x,math.sqrt(accel_y**2+accel_z**2))
             roll = math.atan2(accel_y,math.sqrt(accel_x**2+accel_z**2))
             #yaw = 57
             #pitch = 20
             #roll = 4
-            if yaw < 0:
-                yaw=yaw+2*math.pi
-                
+            #if yaw < 0:
+	       # yaw=yaw+2*math.pi
+
             #tilt compensation
             x_h = mag_x*math.cos(pitch) + mag_z*math.sin(pitch)
             y_h = mag_x*math.sin(roll)*math.sin(pitch)+mag_y*math.cos(roll)-mag_z*math.sin(roll)*math.cos(pitch)
-            
+
             tilt_yaw = math.atan2(y_h,x_h)
-            
+
             if tilt_yaw < 0:
                 tilt_yaw=tilt_yaw+2*math.pi
 
@@ -138,34 +138,34 @@ def sensor_read(arg1):
 
             subprocess.call(['i2cdetect', '-y', '1'])
             continue
-           
+
         #convert radians to degrees
-        rollDeg = roll*57.2958            
+        rollDeg = roll*57.2958
         pitchDeg = pitch*57.2958
         yawDeg = yaw*57.2958
         yawTilt = tilt_yaw*57.2958
-        
+
         #print("yawDeg: {}".format(yawDeg))
         #print("yawTilt: {}".format(yawTilt))
-        
+
         #line (radius) in compass is 23 pixels (compass is 46 pixels wide)
         #offset by pi to orient the display so top is north
         xx = round(math.cos(yaw-math.pi/2)*23)
         yy = round(math.sin(yaw-math.pi/2)*23)
-        
+
         image = Image.new("1",(128,64))
         draw = ImageDraw.Draw(image)
-        
+
         font = ImageFont.load_default()
 
         draw.ellipse((41,17,87,63),outline=255, fill=0)#left,top,right,bottom
-             
+
         draw.line((xx+64,yy+41,64,41),fill=255) #[left (beginning), top] head, [right (end), bottom] tail - tail is always at center
 
         draw.text((0,-2),"Yaw: {}".format(round(yawDeg)),font=font,fill=255)
         draw.text((64,-2),"Pitch: {}".format(round(pitchDeg)),font=font,fill=255)
         draw.text((0,6),"Roll: {}".format(round(rollDeg)),font=font,fill=255)
-         
+
         #Display information from Temp, Heading, Pressure sensor - you may wish to do something based on this information
         draw.text((0,14),"T: {:0.1f}C".format((bme280.temperature)),font=font,fill=255)
         draw.text((0,22),"H: {}%".format(round(bme280.humidity)),font=font,fill=255)
@@ -174,8 +174,8 @@ def sensor_read(arg1):
         #Update OLED screen to show new data and orientation (attitude) information
         oled.image(image)
         oled.show()
-             
-#Start the sensor read thread         
+
+#Start the sensor read thread
 t = threading.Thread(target=sensor_read,args=(1,), daemon=True).start()
 
 # Setup OLED screen - get parameters
@@ -191,7 +191,7 @@ font = ImageFont.load_default()
 #Make it easier to remember which pins control which motors
 GR1 = 21
 GR2 = 26
-BL1 = 13 
+BL1 = 13
 OR1 = 20
 BR1 = 27
 
@@ -208,7 +208,7 @@ BR1_PWM = 1
 GPIO.setmode(GPIO.BCM)
 
 #Turn off warnings about pins being already configured
-GPIO.setwarnings(False) 
+GPIO.setwarnings(False)
 
 
 #Setup pins to control direction on the motor driver chip (MAXIM's MAX14870)
@@ -361,25 +361,26 @@ try:
                         print("%s pressed" % (button))
                     else:
                         print("%s released" % (button))
-                        
+
                     if button == "y":
-                        
+
                         GPIO.output(6,GPIO.HIGH)#turn on other LED
 
                     else:
                         GPIO.output(6,GPIO.LOW)#otherwise turn it off - should turn off when any other button is pushed
-                   # if button == "x":
-                   #     GPIO.output(GR2,GPIO.HIGH)
-                   #     pwm.channels[GR2_PWM].duty_cycle = 0xFFFF
-                   #     GPIO.output(16,GPIO.HIGH)
-                   # else:
-                   #     GPIO.output(GR2,GPIO.LOW)
-                   #     pwm.channels[GR2_PWM].duty_cycle = 0
-                   #     GPIO.output(16,GPIO.LOW)
+                        
+                    if button == "x":
+                        GPIO.output(GR2,GPIO.HIGH)
+                        pwm.channels[GR2_PWM].duty_cycle = 0xFFFF
+                        GPIO.output(16,GPIO.HIGH)
+                    else:
+                        GPIO.output(GR2,GPIO.LOW)
+                        pwm.channels[GR2_PWM].duty_cycle = 0
+                        GPIO.output(16,GPIO.LOW)
             if type & 0x02:
                 axis = axis_map[number]
                 #right joystick fwd/rev
-                if axis=="y2":          
+                if axis=="y2":
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValy2 = int(fvalue)*2+1
@@ -389,10 +390,10 @@ try:
                 if axis=="x2":
                     fvalue = value
                     axis_states[axis] = fvalue
-                    
+
                     intValx2 = int(fvalue)*2+1
-                    
-                #left joystick fwd/rev      
+
+                #left joystick fwd/rev
                 if axis=="y":
                     fvalue = value
                     axis_states[axis] = fvalue
@@ -401,9 +402,9 @@ try:
                 if axis=="x":
                     fvalue = value
                     axis_states[axis] = fvalue
-                    
+
                     intValx = int(fvalue)*2+1
-                    
+
                 #front right trigger fwd (vehicle ascend)
                 if axis=="ry":
                     fvalue = value
@@ -414,59 +415,56 @@ try:
                     fvalue = value
                     axis_states[axis] = fvalue
                     intValrx = int(fvalue)*2+1
-                                       
-                #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html      
+
+                #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html
                 if intValy2<-100:
 
                     GPIO.output(BL1,GPIO.LOW)#direction pin
                     pwm.channels[BL1_PWM].duty_cycle = abs(intValy2)
-                 #   GPIO.output(GR2,GPIO.LOW)#direction pin
-                 #   pwm.channels[GR2_PWM].duty_cycle = abs(intValy2)
 
-                    
+
+
                 elif intValy2>100:
 
-                    GPIO.output(BL1,GPIO.HIGH)#direction pin                
+                    GPIO.output(BL1,GPIO.HIGH)#direction pin
                     pwm.channels[BL1_PWM].duty_cycle = (intValy2)
-                    
+
                 else:
-                    
-                    pwm.channels[BL1_PWM].duty_cycle = 0 
+
+                    pwm.channels[BL1_PWM].duty_cycle = 0
 
                 if intValy>100:
-                
+
                     GPIO.output(GR1,GPIO.HIGH)#direction pin
                     pwm.channels[GR1_PWM].duty_cycle = (intValy)
-                    
+
                 elif intValy<-100:
-                
+
                     GPIO.output(GR1,GPIO.LOW)#direction pin
                     pwm.channels[GR1_PWM].duty_cycle = abs(intValy)
-                    
+
                 else:
 
-                    pwm.channels[GR1_PWM].duty_cycle = 0 
+                    pwm.channels[GR1_PWM].duty_cycle = 0
 
                 if intValrx>100:
-                    print (str(intValry)+" 01")
                     GPIO.output(OR1,GPIO.LOW)#direction pin
                     GPIO.output(BR1,GPIO.LOW)#direction pin
 
-                    pwm.channels[OR1_PWM].duty_cycle = abs(intValrx)               
+                    pwm.channels[OR1_PWM].duty_cycle = abs(intValrx)
                     pwm.channels[BR1_PWM].duty_cycle = abs(intValrx)
 
                 elif intValry>100:
-                    print (str(intValry)+" 02")
-                    
+
                     GPIO.output(OR1,GPIO.HIGH)#direction pin
                     GPIO.output(BR1,GPIO.HIGH)#direction pin
-       
+
                     pwm.channels[OR1_PWM].duty_cycle = abs(intValry)
                     pwm.channels[BR1_PWM].duty_cycle = abs(intValry)
                 else:
 
                     pwm.channels[OR1_PWM].duty_cycle = 0
                     pwm.channels[BR1_PWM].duty_cycle = 0
-                       
-except (KeyboardInterrupt,SystemExit):            
+
+except (KeyboardInterrupt,SystemExit):
     GPIO.cleanup()
