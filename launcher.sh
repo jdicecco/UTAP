@@ -4,5 +4,5 @@
 
 cd /
 cd home/pi/Desktop/RPi
-python3 UTAP_2022.py
+python3 UTAP_2023.py
 cd /
