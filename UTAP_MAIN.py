@@ -458,15 +458,15 @@ try:
                 #There's a nice tutorial for single joysick control at http://home.kendra.com/mauser/Joystick.html
                 if intValy2<-100:
 
-                    GPIO.output(BL1,GPIO.LOW)#direction pin
-                    pwm.channels[BL1_PWM].duty_cycle = abs(intValy2)
+                    GPIO.output(GR1,GPIO.LOW)#direction pin
+                    pwm.channels[GR1_PWM].duty_cycle = abs(intValy2)
 
 
 
                 elif intValy2>100:
 
-                    GPIO.output(BL1,GPIO.HIGH)#direction pin
-                    pwm.channels[BL1_PWM].duty_cycle = (intValy2)
+                    GPIO.output(GR1,GPIO.HIGH)#direction pin
+                    pwm.channels[GR1_PWM].duty_cycle = (intValy2)
 
                 else:
 
@@ -474,13 +474,13 @@ try:
 
                 if intValy>100:
 
-                    GPIO.output(GR1,GPIO.HIGH)#direction pin
-                    pwm.channels[GR1_PWM].duty_cycle = (intValy)
+                    GPIO.output(BL1,GPIO.HIGH)#direction pin
+                    pwm.channels[BL1_PWM].duty_cycle = (intValy)
 
                 elif intValy<-100:
 
-                    GPIO.output(GR1,GPIO.LOW)#direction pin
-                    pwm.channels[GR1_PWM].duty_cycle = abs(intValy)
+                    GPIO.output(BL1,GPIO.LOW)#direction pin
+                    pwm.channels[BL1_PWM].duty_cycle = abs(intValy)
 
                 else:
 
