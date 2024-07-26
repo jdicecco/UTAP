@@ -470,7 +470,7 @@ try:
 
                 else:
 
-                    pwm.channels[BL1_PWM].duty_cycle = 0
+                    pwm.channels[GR1_PWM].duty_cycle = 0
 
                 if intValy>100:
 
@@ -484,7 +484,7 @@ try:
 
                 else:
 
-                    pwm.channels[GR1_PWM].duty_cycle = 0
+                    pwm.channels[BL1_PWM].duty_cycle = 0
 
                 if intValrx>100:
                     GPIO.output(OR1,GPIO.LOW)#direction pin
