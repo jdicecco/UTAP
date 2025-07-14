@@ -50,6 +50,9 @@ LIS = 0
 global LSM
 LSM = 0
 
+global sensor_flag
+sensor_flag = True
+
 #buff = hex(device_address) for device_address in list;
 if len(i2clist):
     for device_address in i2clist:
@@ -116,23 +119,27 @@ def sensor_read(arg1):
         time.sleep(0.2)
 
         try:
+            if sensor_flag:
+                #Previous code for reading differnt IMU sensor
+                #mag_x, mag_y, mag_z = mag_sensor.magnetic
+                #accel_x, accel_y, accel_z = accel_sensor.acceleration
 
-            #Previous code for reading differnt IMU sensor
-            #mag_x, mag_y, mag_z = mag_sensor.magnetic
-            #accel_x, accel_y, accel_z = accel_sensor.acceleration
-
-            #Read IMU
-            if NXP:
-                mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
-                accel_x, accel_y, accel_z = mag_accel_sensor.accelerometer
-                gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
-            elif LIS:
-                accel_x, accel_y, accel_z = accel_gyro.acceleration
-                gyro_x, gyro_y, gyro_z = accel_gyro.gyro
-                mag_x, mag_y, mag_z = mag_sensor.magnetic
+                #Read IMU
+                if NXP:
+                    mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+                    accel_x, accel_y, accel_z = mag_accel_sensor.accelerometer
+                    gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+                elif LIS:
+                    accel_x, accel_y, accel_z = accel_gyro.acceleration
+                    gyro_x, gyro_y, gyro_z = accel_gyro.gyro
+                    mag_x, mag_y, mag_z = mag_sensor.magnetic
+                else:
+                    mag_x, mag_y, mag_z = mag_sensor.magnetic
+                    accel_x, accel_y, accel_z = accel_sensor.acceleration
             else:
-                mag_x, mag_y, mag_z = mag_sensor.magnetic
-                accel_x, accel_y, accel_z = accel_sensor.acceleration
+                accel_x, accel_y, accel_z = (0.1,0.1,0.1)
+                gyro_x, gyro_y, gyro_z = (0.1,0.1,0.1)
+                mag_x, mag_y, mag_z = (0.1,0.1,0.1)
 
 
             #mag calibration offsets for a SPECIFIC device - yours will be different!!
@@ -151,6 +158,8 @@ def sensor_read(arg1):
 
             #We use print statements for debugging - comment out to spee execution
             print("mag: {},{},{}".format(mag_x, mag_y, mag_z))
+            print("accel: {},{},{}".format(accel_x, accel_y, accel_z))
+            print("gyro: {},{},{}".format(gyro_x, gyro_y, gyro_z))
             #print("accel: {}".format(mag_accel_sensor.accelerometer))
 
 
@@ -172,6 +181,7 @@ def sensor_read(arg1):
 
             if heading < 0:
                 heading += 360;
+
 
         except:
 
