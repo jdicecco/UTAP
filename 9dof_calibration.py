@@ -2,16 +2,53 @@ import threading
 import time
 import board
 import busio
-#from adafruit_lsm6ds import LSM6DSOX
-#from adafruit_lis3mdl import LIS3MDL
+
+import adafruit_lsm303dlh_mag
+import adafruit_lsm303_accel
+import adafruit_l3gd20
+from adafruit_lsm6ds.lsm6dsox import LSM6DSOX as LSM6DS
+from adafruit_lis3mdl import LIS3MDL
 
 
 import adafruit_fxos8700
 import adafruit_fxas21002c
 
 
+i2c = board.I2C()
+i2clist = i2c.scan()
+
 SAMPLE_SIZE = 500
 
+
+global NXP
+NXP = 0
+global LIS
+LIS = 0
+global LSM
+LSM = 0
+
+
+if len(i2clist):
+    for device_address in i2clist:
+        if hex(device_address)=='0x1f':
+            print([hex(device_address)])
+            i2c_nxp = board.I2C()
+            mag_accel_sensor = adafruit_fxos8700.FXOS8700(i2c_nxp)
+            gyro_sensor = adafruit_fxas21002c.FXAS21002C(i2c_nxp)
+            NXP = 1
+        elif hex(device_address)=='0x6a':
+            i2c_ls = board.I2C()  # uses board.SCL and board.SDA
+            accel_gyro = LSM6DS(i2c_ls,0x6A)
+            mag_sensor = LIS3MDL(i2c_ls,0x1C)
+            LIS = 1
+        elif hex(device_address)=='0x6b':
+            i2c_lsm = board.I2C()
+            mag_sensor = adafruit_lsm303dlh_mag.LSM303DLH_Mag(i2c_lsm)
+            accel_sensor = adafruit_lsm303_accel.LSM303_Accel(i2c_lsm)
+            gyro_sensor = adafruit_l3gd20.L3GD20_I2C(i2c_lsm,rng=1,address=0x6B)
+            LSM = 1
+        else:
+            print('--')
 
 class KeyListener:
     """Object for listening for input in a separate thread"""
@@ -36,7 +73,7 @@ class KeyListener:
     def stop(self):
         """Stop Listening"""
         if self._listener_thread is not None and self._listener_thread.is_alive():
-            self._listener_thread.join()
+                self._listener_thread.join()
 
     @property
     def pressed(self):
@@ -52,16 +89,17 @@ def main():
     # pylint: disable=too-many-locals, too-many-statements
     #i2c = busio.I2C(board.SCL, board.SDA)
 
-    #gyro_accel = LSM6DSOX(i2c)
-    #magnetometer = LIS3MDL(i2c)
-    
-    i2c_nxp = busio.I2C(board.SCL, board.SDA)
-    mag_accel_sensor = adafruit_fxos8700.FXOS8700(i2c_nxp)
 
-    gyro_sensor = adafruit_fxas21002c.FXAS21002C(i2c_nxp)
-    
     key_listener = KeyListener()
     key_listener.start()
+
+    if NXP:
+        mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+    elif LIS:
+        mag_x, mag_y, mag_z = mag_sensor.magnetic
+    else:
+        mag_x, mag_y, mag_z = mag_sensor.magnetic
+
 
     ############################
     # Magnetometer Calibration #
@@ -76,14 +114,19 @@ def main():
         pass
 
     #mag_x, mag_y, mag_z = magnetometer.magnetic
-    mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+    #mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
     min_x = max_x = mag_x
     min_y = max_y = mag_y
     min_z = max_z = mag_z
 
     while not key_listener.pressed:
         #mag_x, mag_y, mag_z = magnetometer.magnetic
-        mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+        if NXP:
+            mag_x, mag_y, mag_z = mag_accel_sensor.magnetometer
+        elif LIS:
+            mag_x, mag_y, mag_z = mag_sensor.magnetic
+        else:
+            mag_x, mag_y, mag_z = mag_sensor.magnetic
         print(
             "Magnetometer: X: {0:8.2f}, Y:{1:8.2f}, Z:{2:8.2f} uT".format(
                 mag_x, mag_y, mag_z
@@ -131,7 +174,15 @@ def main():
     #########################
 
     #gyro_x, gyro_y, gyro_z = gyro_accel.gyro
-    gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+    if NXP:
+        gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+    elif LIS:
+
+        gyro_x, gyro_y, gyro_z = accel_gyro.gyro
+
+    else:
+        gyro_x, gyro_y, gyro_z = accel_gyro.gyro
+        
     min_x = max_x = gyro_x
     min_y = max_y = gyro_y
     min_z = max_z = gyro_z
@@ -146,7 +197,12 @@ def main():
 
     for _ in range(SAMPLE_SIZE):
         #gyro_x, gyro_y, gyro_z = gyro_accel.gyro
-        gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+        if NXP:
+            gyro_x, gyro_y, gyro_z = gyro_sensor.gyroscope
+        elif LIS:
+            gyro_x, gyro_y, gyro_z = accel_gyro.gyro
+        else:
+            gyro_x, gyro_y, gyro_z = accel_gyro.gyro
         print(
             "Gyroscope: X: {0:8.2f}, Y:{1:8.2f}, Z:{2:8.2f} rad/s".format(
                 gyro_x, gyro_y, gyro_z
